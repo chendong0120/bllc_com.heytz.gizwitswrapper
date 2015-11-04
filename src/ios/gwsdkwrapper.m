@@ -76,6 +76,7 @@
                            device.did, @"did",
                            device.macAddress, @"macAddress",
                            device.passcode, @"passcode",
+                            device.productKey,@"productKey",
                            nil];
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:d];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.commandHolder.callbackId];
