@@ -97,7 +97,7 @@ public class gwsdkwrapper extends CordovaPlugin {
 //            ArrayList<XPGWifiSDK.XPGWifiGAgentType> atList = new ArrayList<>();
 //            atList.add(XPGWifiSDK.XPGWifiGAgentType.XPGWifiGAgentTypeHF);
                 _shareInstance.setDeviceWifi(wifiSSID, wifiKey, XPGWifiConfigureMode.XPGWifiConfigureModeAirLink, null,
-                        45000, null);
+                        18000);
             } else {
                 callbackContext.error("args is empty or null");
             }
