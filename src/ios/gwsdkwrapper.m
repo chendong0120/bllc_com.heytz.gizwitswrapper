@@ -21,9 +21,9 @@
 
 @synthesize commandHolder;
 NSString * productKey;
+NSString    *_currentPairDeviceMacAddress;
 
-
--(void)pluginInitialize{    
+-(void)pluginInitialize{
 
 }
 -(void)initSdkWithAppId:(CDVInvokedUrlCommand *) command{
@@ -32,7 +32,7 @@ NSString * productKey;
         [XPGWifiSDK startWithAppID:_appId];
         _shareInstance = [XPGWifiSDK sharedInstance];
         _shareInstance.delegate = self;
-        
+
     }
 }
 /*
@@ -43,8 +43,8 @@ NSString * productKey;
 
     [self initSdkWithAppId:command];
     self.commandHolder = command;
-    
-    
+
+
     /**
      配置设备连接路由的方法
      @param ssid 需要配置到路由的SSID名
@@ -56,21 +56,22 @@ NSString * productKey;
      @param types 配置的wifi模组类型列表，存放NSNumber对象，SDK默认同时发送庆科和汉枫模组配置包；SoftAPMode模式下该参数无意义。types为nil，SDK按照默认处理。如果只想配置庆科模组，types中请加入@XPGWifiGAgentTypeMXCHIP类；如果只想配置汉枫模组，types中请加入@XPGWifiGAgentTypeHF；如果希望多种模组配置包同时传，可以把对应类型都加入到types中。XPGWifiGAgentType枚举类型定义SDK支持的所有模组类型。
      @see 对应的回调接口：[XPGWifiSDKDelegate XPGWifiSDK:didSetDeviceWifi:result:]
      */
-
-    [[XPGWifiSDK sharedInstance] setDeviceWifi:command.arguments[0]
-                                           key:command.arguments[1]
-                                          mode:XPGWifiSDKAirLinkMode
-                              softAPSSIDPrefix:nil
-                                       timeout:180];
+// 旧接口  抛弃
+//    [[XPGWifiSDK sharedInstance] setDeviceWifi:command.arguments[0]
+//                                           key:command.arguments[1]
+//                                          mode:XPGWifiSDKAirLinkMode
+//                              softAPSSIDPrefix:nil
+//                                       timeout:180];
+    //新接口 11.24
+    _currentPairDeviceMacAddress=nil;
+    [[XPGWifiSDK  sharedInstance] setDeviceWifi:command.arguments[0] key:command.arguments[1] mode:XPGWifiSDKAirLinkMode softAPSSIDPrefix:nil timeout:180 wifiGAgentType:nil];
 }
 
 
 - (void)XPGWifiSDK:(XPGWifiSDK *)wifiSDK didSetDeviceWifi:(XPGWifiDevice *)device result:(int)result{
-    
-    if(result == 0  && device.did.length == 22) {
-        // successful
-        NSLog(@"======did===%@", device.did);
-        NSLog(@"======passCode===%@", device.passcode);
+
+
+    if(result == 0  && device.macAddress.length > 0) {
         NSDictionary *d = [NSDictionary dictionaryWithObjectsAndKeys:
                            device.did, @"did",
                            device.ipAddress, @"ipAddress",
@@ -79,15 +80,17 @@ NSString * productKey;
                            device.productKey, @"productKey",
                            device.productName, @"productName",
                            device.remark, @"remark",
-                           device.ui, @"ui",
                            device.isConnected, @"isConnected",
                            device.isDisabled, @"isDisabled",
                            device.isLAN, @"isLAN",
                            device.isOnline, @"isOnline",
                            @"",@"error",
                            nil];
-        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:d];
-        [self.commandDelegate sendPluginResult:pluginResult callbackId:self.commandHolder.callbackId];
+        for (NSString *key in d) {
+            NSLog(@"=======success key: %@ value: %@", key, d[key]);
+        }
+         _currentPairDeviceMacAddress=device.macAddress;
+
     }else if(result == XPGWifiError_CONFIGURE_TIMEOUT){
         NSLog(@"======timeout=====");
         [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR] callbackId:self.commandHolder.callbackId];
@@ -97,14 +100,53 @@ NSString * productKey;
     }
 }
 
+-(void)XPGWifiSDK:(XPGWifiSDK *)wifiSDK didDiscovered:(NSArray *)deviceList result:(int)result{
+        if (result == 0 && deviceList.count > 0) {
+            for (XPGWifiDevice *device in deviceList){
+                 NSLog(@"======_currentPairDeviceMacAddress:%@ macAddress:%@ did:%@ (device.did.length>0):%d",
+                       _currentPairDeviceMacAddress,
+                       device.macAddress,
+                       device.did,
+                       (device.did.length>0));
+
+                if( [_currentPairDeviceMacAddress isEqualToString:device.macAddress]&&(device.did.length>0)){
+                NSDictionary *d = [NSDictionary dictionaryWithObjectsAndKeys:
+                                   device.did, @"did",
+                                   device.ipAddress, @"ipAddress",
+                                   device.macAddress, @"macAddress",
+                                   device.passcode, @"passcode",
+                                   device.productKey, @"productKey",
+                                   device.productName, @"productName",
+                                   device.remark, @"remark",
+                                   device.isConnected, @"isConnected",
+                                   device.isDisabled, @"isDisabled",
+                                   device.isLAN, @"isLAN",
+                                   device.isOnline, @"isOnline",
+                                   @"",@"error",
+                                   nil];
+
+                for (NSString *key in d) {
+                    NSLog(@"=======didDiscovered:success key: %@ value: %@", key, d[key]);
+                }
+                    _currentPairDeviceMacAddress=nil;
+                    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:d];
+                    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.commandHolder.callbackId];
+            }
+        }
+    }
+}
+
 - (void)dealloc:(CDVInvokedUrlCommand *)command
 {
     NSLog(@"//====dealloc...====");
     _shareInstance = nil;
+    _currentPairDeviceMacAddress=nil;
 }
 
 
 - (void)dispose{
     NSLog(@"//====disposed...====");
+    _shareInstance=nil;
+    _currentPairDeviceMacAddress=nil;
 }
 @end
